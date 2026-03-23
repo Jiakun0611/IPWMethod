@@ -1,0 +1,31 @@
+#' NHIS Reference Survey Sample (Reference Sample 2)
+#'
+#' This dataset is a probability-based reference sample from the National Health
+#' Interview Survey (NHIS). It is used as the second reference survey in the
+#' IPWMethod package for estimating pseudo-weights in the cohort sample \code{sc}.
+#' Together with \code{ref_survey_1}, this dataset provides population benchmarks
+#' for multi-reference calibration and helps correct selection bias in the cohort
+#' sample by supplying known design weights and population-level covariate
+#' distributions.
+#'
+#' @format A data frame with 35,610 observations and 12 variables:
+#' \describe{
+#'   \item{d_agecat}{Age category (factor with 4 levels)}
+#'   \item{d_marital}{Marital status (factor with 4 levels)}
+#'   \item{d_region}{Geographic region (factor with 4 levels)}
+#'   \item{d_race}{Race category (factor with 4 levels)}
+#'   \item{d_educat}{Education level (factor with 7 levels)}
+#'   \item{d_empstat}{Employment status (factor with 2 levels)}
+#'   \item{d_smoking}{Smoking status (factor with 3 levels)}
+#'   \item{d_bmicat2}{BMI category (factor with 5 levels)}
+#'   \item{d_arthritis}{Arthritis status (factor with 3 levels)}
+#'   \item{d_comorbidity}{General comorbidity indicator (factor with 2 levels)}
+#'   \item{wts}{NHIS sampling weight (numeric)}
+#' }
+#'
+#' @usage data(ref_survey_2)
+#'
+#' @examples
+#' data(ref_survey_2)
+#' head(ref_survey_2)
+"ref_survey_2"

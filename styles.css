@@ -1,0 +1,12 @@
+/* 所有代码输出自动可滚动 */
+.reveal pre {
+  max-height: 450px;
+  overflow-y: auto;
+}
+
+/* 所有 R 输出块自动可滚动 */
+.reveal .cell-output,
+.reveal .sourceCode {
+  max-height: 450px;
+  overflow-y: auto;
+}

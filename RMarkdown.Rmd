@@ -1,0 +1,311 @@
+---
+title: "R Package Updates"
+author: "Jiakun Lin"
+date: "`r Sys.Date()`"
+output:
+  # html_document:
+  #   css: styles.css
+  slidy_presentation:
+    paged: true
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(error = TRUE)
+load("C:/Users/Kevin/OneDrive - University of Toronto/Summer_Job/Github_IWH/Package6 - BackUp - D matrix+Seperation/IPWMethod/.RData")
+library(IPWMethod)
+library(tidyverse)
+```
+
+## Overview
+
+- Updates to the package  
+  - Probability samples ordered by size or as given for precalibration and estimation
+  - Survey design of probability samples for D matrix computation
+
+- Demonstrations  
+
+- Questions  
+
+
+  
+
+
+
+## User interface
+```{r IPWM, eval=FALSE}
+IPWM(
+  sc,  
+  sp,  
+  y,  
+  weight,  
+  p_formula,  
+  method,  
+  zcol,  
+  precali,  
+  
+  sp_order,    
+  # For multi-reference only
+  # If "size", reference samples are reordered by decreasing sample size (default)
+  # If "given", preserves the input order
+  # The order is used for both precalibration and coefficients estimation
+  
+  sp_design  
+  # Sampling design information for computing the design-based variance component D from the probability sample(s)
+)
+```
+
+
+## sp_design
+Four design types are available for user:  
+```{r sp_design, eval=FALSE}
+
+
+sp_design = list(type = "poisson") # Poisson (default)
+
+sp_design = list(type = "pps")     # PPS without replacement 
+
+sp_design = list(type = "psu", ids = "psu", strata = "strata", fpc = NULL, nest = TRUE)
+# Stratified multistage sampling (PSU-based design)
+
+sp_design = list(type = "replicate", weights = "w", repweights = ..., rep_type = "bootstrap")
+# Replicate-weight design (e.g., Statistics Canada bootstrap replicate weights)
+
+```
+
+
+## PSU-based design
+```{r PSU design, eval=FALSE}
+
+design = list(
+  type   = "psu",
+  ids    = "psu",      # PSU identifier column in sp
+  strata = "strata",   # stratum identifier column in sp
+  fpc    = NULL,       # optional finite population correction 
+  nest   = TRUE        # PSU ids are nested within strata
+)
+
+```
+keep fpc? expose any additional parameters from the survey package?  
+
+For lonely PSU problem, let user choose handle rule or use "adjust" internally?  
+options(survey.lonely.psu = "adjust/certainty/remove")
+
+## Replicate-weight design
+```{r replicate design, eval=FALSE}
+
+design = list(
+  type       = "replicate",  
+  weights    = "w",                     # main weight column name in sp
+  repweights = c("rw1","rw2","rw3",...) # replicate weight column names in sp
+  rep_type   = "bootstrap"              # only "bootstrap" is currently implemented
+           )
+
+```
+add other replicate methods (BRR, JK)?
+
+
+## Example: sp1 with psu/strata infomation
+1240 subjects (complete case) from 2005-2010 NHANES wave  
+PSU and strata info is included
+```{r sp1, echo = F,class="scrollable"}
+str(sp1)
+
+```
+
+
+
+
+## sc
+1082 subjects (complete case) from 2000-2004 NHANES wave  
+height and weight are self-reported to mimic PLCO  
+true weights are kept for comparison
+```{r sc, echo = F,class="scrollable"}
+str(sc)
+```
+
+## 
+PSU-based
+```{r run psu design, echo = F,class="scrollable"}
+IPWM(sc=sc,sp=sp1,y="psa",weight="wts_sp1",method="calibration",
+     ~agecat + marital + race + educat + empstat + 
+        smoking + comorbidity ,
+     sp_design=list(type="psu",ids="psu",strata="strata"))
+```
+
+Poisson
+```{r run poisson, echo = F,class="scrollable"}
+IPWM(sc=sc,sp=sp1,y="psa",weight="wts_sp1",method="calibration",
+     ~agecat + marital + race + educat + empstat + 
+        smoking + comorbidity,
+     sp_design=list(type="poisson"))
+```
+
+PPS
+```{r run pps, echo = F,class="scrollable"}
+IPWM(sc=sc,sp=sp1,y="psa",weight="wts_sp1",method="calibration",
+     ~agecat + marital + race + educat + empstat + 
+        smoking + comorbidity,
+     sp_design=list(type="pps"))
+```
+
+## Rust and Rao Replication Methods 
+
+For one replicate \(t\):
+
+- From the \(n_h\) sampled PSUs in stratum \(h\), draw \(m_h\) PSUs with replacement \((n_h - 1) \ge m_h > 0\)
+
+- Let \(r_{hi}^{(t)}\) be the number of times PSU \(i\) (in stratum \(h\)) is selected in replicate \(t\).
+  \[
+  0 \le r_{hi}^{(t)} \le m_h
+  \]
+- Replicate weights are constructed by:
+
+\vspace{0.3em}
+
+\[
+w_{hij}^{(t)}
+=
+w_{hij}\left\{
+\left(1-\sqrt{m_h(n_h-1)}\right)
++
+\sqrt{\frac{m_h}{(n_h-1)}}\cdot \frac{n_h}{m_h}\cdot r_{hi}^{(t)}
+\right\}.
+\]
+
+**Notation**  
+- \(h\): stratum,  \(i\): PSU,  \(j\): unit within PSU  
+- \(w_{hij}\): original-sample weight;   \(w_{hij}^{(t)}\): replicate-\(t\) weight
+
+
+## Generate bootstrap weights in sp1
+sp1_bt
+```{r sp1_bt, echo = F,class="scrollable"}
+str(sp1_bt[,1:20])
+
+c(original_total = base_total,
+  rep_total_mean = mean(rep_totals),
+  rep_sd         = sd(rep_totals))
+```
+
+Should we precalibrate bootstrap weights to make them sum up to the same?
+
+## PSU-based design vs. Bootstrap
+Bootstrap
+```{r run bootstrap, echo = F,class="scrollable"}
+IPWM(sc=sc,sp=sp1_bt,y="psa",weight="wts_sp1",method="calibration",
+        p_formula = ~agecat + marital + race + educat + empstat + 
+        smoking + comorbidity,
+     sp_design=list(type="replicate",weights="wts_sp1",
+                    repweights=paste0("bw",1:500),rep_type="bootstrap"))
+```
+PSU
+```{r run psu—design, echo = F,class="scrollable"}
+IPWM(sc=sc,sp=sp1,y="psa",weight="wts_sp1",method="calibration",
+     p_formula = ~agecat + marital + race + educat + empstat + 
+        smoking + comorbidity,
+     sp_design=list(type="psu",ids="psu",strata="strata"))
+```
+
+
+
+## sp2
+35293 subjects (complete case) from 1997-2008 NHIS (male 50-75 yrs)  
+height and weight are self-reported  
+PSU and strata info is included
+```{r sp2, echo = F}
+str(sp2)
+```
+
+##    
+
+PSU-based
+```{r run psu design sp2, echo = F,class="scrollable"}
+IPWM(sc=sc,sp=sp2,y="psa",weight="wts_sp2",method="calibration",
+     p_formula = ~ agecat+marital+race+empstat+smoking+comorbidity+BMI,
+     sp_design=list(type="psu",ids="psu_sp2",strata="strata_sp2"))
+```
+
+Poisson
+```{r run poisson sp2, echo = F,class="scrollable"}
+IPWM(sc=sc,sp=sp2,y="psa",weight="wts_sp2",method="calibration",
+     p_formula = ~ agecat+marital+race+empstat+smoking+comorbidity+BMI,
+     sp_design=list(type="poisson"))
+```
+
+PPS
+```{r run pps sp2, echo = F,class="scrollable"}
+IPWM(sc=sc,sp=sp2,y="psa",weight="wts_sp2",method="calibration",
+     p_formula = ~ agecat+marital+race+empstat+smoking+comorbidity+BMI,
+     sp_design=list(type="pps"))
+```
+
+
+
+## Multi-reference case
+
+```{r run multi, echo = F,class="scrollable"}
+IPWM(sc=sc,sp=list(sp1,sp2),y="psa",weight=c("wts_sp1","wts_sp2"),
+     precali=TRUE,sp_order="size",
+     p_formula=list(~agecat + marital + race + educat + empstat + 
+        smoking + comorbidity,~BMI),
+     sp_design=list(
+       list(type="psu",ids="psu",strata="strata",nest=TRUE),
+       list(type="psu",ids="psu_sp2",strata="strata_sp2",nest=TRUE)
+     ))
+```
+
+
+
+## Results Summary
+PSU mean by true weights: 1.762555
+
+```{r results summary, echo = F,class="scrollable"}
+res <- data.frame(
+  sp_design = c("sp1-PSU", "sp1-Bootstrap", "sp1-Poisson",
+                "sp2-PSU", "multi-PSU", "sp1-PSU+psa", "unweighted"),
+  Mean = c(1.747084, 1.747084, 1.747084,
+           1.813639, 1.767573, 1.979886, 1.969316),
+  SE   = c(0.073208, 0.072865, 0.072106,
+           0.103363, 0.096465, 0.074997, 0.006298),
+  LCI  = c(1.603595, 1.604269, 1.605756,
+           1.611048, 1.578501, 1.832893, 1.813772),
+  UCI  = c(1.890572, 1.889898, 1.888411,
+           2.016230, 1.956644, 2.126879, 2.124860)
+)
+
+mu_true <- 1.762555
+
+res[["RB*100"]] <- round((res$Mean - mu_true) / mu_true * 100 , 2)
+
+print(res, row.names = FALSE)
+
+
+```
+Should we also consider binary outcome?
+
+
+## Seperation of Function
+First function has no outcome related variables: outcome(y) and domain variable (zcol)
+```{r seperation format, eval=FALSE}
+fit = IPWM_build(
+  sc,  
+  sp,  
+  weight,  
+  p_formula,  
+  method,  
+  precali,  
+  sp_order
+)
+```
+Second function take the return object from first function, along with outcome(s) and domain variable
+
+```{r seperation format 2, eval=FALSE}
+result = IPWM_estimate(
+  fit,
+  y,  # one outcome at a time
+  zcol,
+  sp_design 
+)
+```
